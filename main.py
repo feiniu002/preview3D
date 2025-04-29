@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QPushButton, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt
 from PyQt5 import uic
 from OpenGL.GL import *
@@ -38,8 +38,8 @@ class GLWidget(QGLWidget):
         
         # 添加动画相关变量
         self.fall_angle = 0
-        self.fall_speed = 2  # 初始速度
-        self.fall_acceleration = 0.8  # 加速度
+        self.fall_speed = 6  # 初始速度
+        self.fall_acceleration = 3  # 加速度
         self.turn_angle = 0
         self.is_falling = False
         self.is_turning = False
@@ -185,7 +185,7 @@ class GLWidget(QGLWidget):
     def fall_backward(self):
         self.is_falling = True
         self.fall_angle = 0
-        self.fall_speed = 1  # 重置初始速度
+        self.fall_speed = 6  # 重置初始速度
         
     def turn_left_right(self):
         if not self.is_turning:
@@ -300,6 +300,26 @@ class GLWidget(QGLWidget):
             self.reset_model()
             event.accept()
 
+class FallBackwardWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("模型倒下动画")
+        self.resize(800, 800)
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+        self.gl_widget = GLWidget()  # 独立GLWidget
+        layout.addWidget(self.gl_widget)
+        self.setStyleSheet("QMainWindow { background-color: black; }")
+        self.center_on_screen()
+        QTimer.singleShot(500, self.gl_widget.fall_backward)
+
+    def center_on_screen(self):
+        screen = QApplication.primaryScreen().geometry()
+        x = (screen.width() - self.width()) // 2
+        y = (screen.height() - self.height()) // 2
+        self.move(x, y)
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -314,7 +334,7 @@ class MainWindow(QMainWindow):
         # 连接按钮信号
         self.pushButton_connect.clicked.connect(self.on_connect)
         self.pushButton_disconnect.clicked.connect(self.on_disconnect)
-        self.pushButton_fallBackward.clicked.connect(self.gl_widget.fall_backward)
+        self.pushButton_fallBackward.clicked.connect(self.show_fall_backward_window)
         self.pushButton_3.clicked.connect(self.gl_widget.fall_backward)
         self.pushButton_turnLeftRight.clicked.connect(self.gl_widget.turn_left_right)
         
@@ -340,6 +360,12 @@ class MainWindow(QMainWindow):
         self.is_connecting = False
         self.is_disconnecting = False
         self.connect_count = 0
+        
+        self.pushButton_fallBackward.clicked.disconnect()  # 先断开原有连接（如果有）
+        self.pushButton_fallBackward.clicked.connect(self.show_fall_backward_window)
+        self.pushButton_3.clicked.disconnect()  # 先断开原有连接（如果有）
+        self.pushButton_3.clicked.connect(self.gl_widget.fall_backward)
+        self.fall_window = None
         
     def update_connect_status(self):
         if self.is_connecting:
@@ -373,6 +399,11 @@ class MainWindow(QMainWindow):
         self.is_connecting = False
         self.connect_count = 0
         self.connect_timer.start(1000)  # 每秒更新一次
+
+    def show_fall_backward_window(self):
+        self.fall_window = FallBackwardWindow()
+        self.fall_window.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+        self.fall_window.show()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
